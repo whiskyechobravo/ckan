@@ -1,0 +1,51 @@
+name: Compile requirements
+on:
+  workflow_dispatch:
+    inputs:
+      targetBranch:
+        description: 'Branch'
+        required: true
+
+jobs:
+  compile_requirements:
+    name: Compile requirements
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: "gabrielfalcao/pyenv-action@v9"
+        with:
+          default: 3.7.12
+          versions: 3.7.12, 3.8.12, 3.9.10, 3.10.2
+          command: pip install -U pip && pip install wheel pip-tools
+
+      - name: Truncate requirements
+        run: truncate requirements.txt --size 0
+
+      - name: Checkout
+        env:
+          BRANCH: ${{ github.event.inputs.targetBranch }}
+        run: |
+          git checkout -B $BRANCH
+
+      - name: Compute requirements
+        run: >
+          for version in  3.7.12 3.8.12 3.9.10 3.10.2; do
+            pyenv local $version;
+            pip-compile requirements.in -o current.txt;
+            cat current.txt | sed -n -E "/^\w/s/(\s+.*)?$/; python_version == '${version%.*}'/p" >> requirements.txt;
+            rm -f current.txt;
+          done;
+
+      - name: Debug result
+        run: cat requirements.txt
+
+      - name: commit
+        env:
+          BRANCH: ${{ github.event.inputs.targetBranch }}
+        run: |
+          git config --global user.name 'requirements-compiler''
+          git config --global user.email 'requirements-compiler@ckan.noreply.github.com'
+          git add requirements.txt
+          git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/ckan/ckan
+          git commit -am "[action] compile requirements"
+          git push -u origin $BRANCH
