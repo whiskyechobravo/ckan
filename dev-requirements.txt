@@ -189,6 +189,8 @@ py==1.11.0
     # via pytest
 pycodestyle==2.5.0
     # via -r dev-requirements.in
+pydocstyle==6.1.1
+    # via -r dev-requirements.in
 pyfakefs==3.2
     # via -r dev-requirements.in
 pygments==2.11.2
@@ -282,7 +284,9 @@ six==1.16.0
     #   responses
     #   sphinx
 snowballstemmer==2.2.0
-    # via sphinx
+    # via
+    #   pydocstyle
+    #   sphinx
 soupsieve==2.3.1
     # via beautifulsoup4
 sphinx==1.8.5
