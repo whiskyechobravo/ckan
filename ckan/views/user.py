@@ -18,7 +18,7 @@ import ckan.logic.schema as schema
 import ckan.model as model
 import ckan.plugins as plugins
 from ckan import authz
-from ckan.common import _, config, g, request
+from ckan.common import _, config, g, request, repr_untrusted
 
 log = logging.getLogger(__name__)
 
@@ -294,7 +294,10 @@ class EditView(MethodView):
             }
             auth = authenticator.UsernamePasswordAuthenticator()
 
-            if auth.authenticate(request.environ, identity) != g.user:
+            auth_user_id = auth.authenticate(request.environ, identity)
+            if auth_user_id:
+                auth_user_id = auth_user_id.split(u',')[0]
+            if auth_user_id != g.userobj.id:
                 errors = {
                     u'oldpassword': [_(u'Password entered was incorrect')]
                 }
@@ -610,7 +613,7 @@ class RequestResetView(MethodView):
         if id in (None, u''):
             h.flash_error(_(u'Email is required'))
             return h.redirect_to(u'/user/reset')
-        log.info(u'Password reset requested for user "{}"'.format(id))
+        log.info(u'Password reset requested for user %s', repr_untrusted(id))
 
         context = {u'model': model, u'user': g.user, u'ignore_auth': True}
         user_objs = []
@@ -629,26 +632,23 @@ class RequestResetView(MethodView):
                 # user, as that would reveal the existence of accounts with
                 # this email address)
                 for user_dict in user_list:
-                    # This is ugly, but we need the user object for the mailer,
-                    # and user_list does not return them
-                    logic.get_action(u'user_show')(
-                        context, {u'id': user_dict[u'id']})
-                    user_objs.append(context[u'user_obj'])
+                    # type_ignore_reason: `user_list` returned the users,
+                    #                     so we know they exist here.
+                    user_objs.append(
+                        model.User.get(user_dict['id']))  # type: ignore
 
         else:
             # Search by user name
             # (this is helpful as an option for a user who has multiple
             # accounts with the same email address and they want to be
             # specific)
-            try:
-                logic.get_action(u'user_show')(context, {u'id': id})
-                user_objs.append(context[u'user_obj'])
-            except logic.NotFound:
-                pass
+            user_obj = model.User.get(id)
+            if user_obj:
+                user_objs.append(user_obj)
 
         if not user_objs:
-            log.info(u'User requested reset link for unknown user: {}'
-                     .format(id))
+            log.info(u'User requested reset link for unknown user: %s',
+                     repr_untrusted(id))
 
         for user_obj in user_objs:
             log.info(u'Emailing reset link to user: {}'
@@ -664,6 +664,9 @@ class RequestResetView(MethodView):
                                 'or contact an administrator for help'))
                 log.exception(e)
                 return h.redirect_to(u'home.index')
+
+        # commit any final changes and remove session
+        model.repo.commit_and_remove()
 
         # always tell the user it succeeded, because otherwise we reveal
         # which accounts exist or not
@@ -731,10 +734,18 @@ class PerformResetView(MethodView):
             if (username is not None and username != u''):
                 user_dict[u'name'] = username
             user_dict[u'reset_key'] = g.reset_key
-            user_dict[u'state'] = model.State.ACTIVE
-            logic.get_action(u'user_update')(context, user_dict)
+            updated_user = logic.get_action(u"user_update")(context, user_dict)
+            # Users can not change their own state, so we need another edit
+            if (updated_user[u"state"] == model.State.PENDING):
+                patch_context = {
+                    u'user': logic.get_action(u"get_site_user")(
+                        {u"ignore_auth": True}, {})[u"name"]
+                }
+                logic.get_action(u"user_patch")(
+                    patch_context,
+                    {u"id": user_dict[u'id'], u"state": model.State.ACTIVE}
+                )
             mailer.create_reset_key(context[u'user_obj'])
-
             h.flash_success(_(u'Your password has been reset.'))
             return h.redirect_to(u'home.index')
         except logic.NotAuthorized:

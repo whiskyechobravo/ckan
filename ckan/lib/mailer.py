@@ -55,11 +55,12 @@ def _mail_recipient(recipient_name, recipient_email,
             msg.add_header(k, v)
     subject = Header(subject.encode('utf-8'), 'utf-8')
     msg['Subject'] = subject
-    msg['From'] = _("%s <%s>") % (sender_name, mail_from)
-    msg['To'] = u"%s <%s>" % (recipient_name, recipient_email)
+    msg['From'] = utils.formataddr((sender_name, mail_from))
+    msg['To'] = utils.formataddr((recipient_name, recipient_email))
     msg['Date'] = utils.formatdate(time())
     msg['X-Mailer'] = "CKAN %s" % ckan.__version__
-    if reply_to and reply_to != '':
+    # Check if extension is setting reply-to via headers or use config option
+    if reply_to and reply_to != '' and not msg['Reply-to']:
         msg['Reply-to'] = reply_to
 
     # Send the email using Python's smtplib.
@@ -203,7 +204,7 @@ def send_invite(user, group_dict=None, role=None):
 
 def create_reset_key(user):
     user.reset_key = text_type(make_key())
-    model.repo.commit_and_remove()
+    model.repo.commit()
 
 
 def make_key():

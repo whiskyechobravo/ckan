@@ -29,9 +29,11 @@ def validator_args(fn):
 def default_resource_schema(
         ignore_empty, unicode_safe, ignore, ignore_missing,
         remove_whitespace, if_empty_guess_format, clean_format, isodate,
-        int_validator, extras_valid_json, keep_extras):
+        int_validator, extras_valid_json, keep_extras,
+        resource_id_validator, resource_id_does_not_exist):
     return {
-        'id': [ignore_empty, unicode_safe],
+        'id': [ignore_empty, resource_id_validator,
+               resource_id_does_not_exist, unicode_safe],
         'package_id': [ignore],
         'url': [ignore_missing, unicode_safe, remove_whitespace],
         'description': [ignore_missing, unicode_safe],
@@ -404,7 +406,7 @@ def default_user_schema(
         'reset_key': [ignore],
         'activity_streams_email_notifications': [ignore_missing,
                                                  boolean_validator],
-        'state': [ignore_missing],
+        'state': [ignore_missing, ignore_not_sysadmin],
         'image_url': [ignore_missing, unicode_safe],
         'image_display_url': [ignore_missing, unicode_safe],
         'plugin_extras': [ignore_missing, json_object, ignore_not_sysadmin],
@@ -741,7 +743,7 @@ def default_update_configuration_schema(
         'ckan.site_about': [ignore_missing, unicode_safe],
         'ckan.site_intro_text': [ignore_missing, unicode_safe],
         'ckan.site_custom_css': [ignore_missing, unicode_safe],
-        'ckan.main_css': [ignore_missing, unicode_safe],
+        'ckan.theme': [ignore_missing, unicode_safe],
         'ckan.homepage_style': [ignore_missing, is_positive_integer],
         'logo_upload': [ignore_missing, unicode_safe],
         'clear_logo_upload': [ignore_missing, unicode_safe],

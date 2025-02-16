@@ -16,7 +16,7 @@ import six
 from six.moves.urllib.parse import (
     urlencode, unquote, urlunparse, parse_qsl, urlparse
 )
-from six import string_types, text_type, StringIO
+from six import string_types, text_type, StringIO, PY2
 
 import ckan.plugins as p
 import ckan.plugins.toolkit as toolkit
@@ -685,7 +685,9 @@ def _insert_links(data_dict, limit, offset):
 
     # change the offset in the url
     parsed = list(urlparse(urlstring))
-    query = unquote(parsed[4])
+    query = parsed[4]
+    if PY2 and isinstance(query, unicode):
+        query = query.encode('utf-8')
 
     arguments = dict(parse_qsl(query))
     arguments_start = dict(arguments)
@@ -1313,7 +1315,7 @@ def search_data(context, data_dict):
     else:
         v = list(_execute_single_statement(
             context, sql_string, where_values))[0][0]
-        if v is None:
+        if v is None or v == '[]':
             records = []
         else:
             records = LazyJSONObject(v)
@@ -1816,26 +1818,28 @@ class DatastorePostgresqlBackend(DatastoreBackend):
         where = _where_clauses(data_dict, fields_types)
 
         select_cols = []
-        records_format = data_dict.get(u'records_format')
+        records_format = data_dict.get('records_format')
         for field_id in field_ids:
-            fmt = u'to_json({0})' if records_format == u'lists' else u'{0}'
-            typ = fields_types.get(field_id)
-            if typ == u'nested':
-                fmt = u'({0}).json'
-            elif typ == u'timestamp':
-                fmt = u"to_char({0}, 'YYYY-MM-DD\"T\"HH24:MI:SS')"
-                if records_format == u'lists':
-                    fmt = u"to_json({0})".format(fmt)
-            elif typ.startswith(u'_') or typ.endswith(u'[]'):
-                fmt = u'array_to_json({0})'
+            fmt = '{0}'
+            if records_format == 'lists':
+                fmt = "coalesce(to_json({0}),'null')"
+            typ = fields_types.get(field_id, '')
+            if typ == 'nested':
+                fmt = "coalesce(({0}).json,'null')"
+            elif typ == 'timestamp':
+                fmt = "to_char({0}, 'YYYY-MM-DD\"T\"HH24:MI:SS')"
+                if records_format == 'lists':
+                    fmt = "coalesce(to_json({fmt}), 'null')".format(fmt=fmt)
+            elif typ.startswith('_') or typ.endswith('[]'):
+                fmt = "coalesce(array_to_json({0}),'null')"
 
             if field_id in rank_columns:
                 select_cols.append((fmt + ' as {1}').format(
                     rank_columns[field_id], identifier(field_id)))
                 continue
 
-            if records_format == u'objects':
-                fmt += u' as {0}'
+            if records_format == 'objects':
+                fmt += ' as {0}'
             select_cols.append(fmt.format(identifier(field_id)))
 
         query_dict['distinct'] = data_dict.get('distinct', False)
