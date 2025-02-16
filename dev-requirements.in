@@ -13,7 +13,7 @@ ipdb==0.13.2
 responses==0.10.14
 mock==2.0.0
 pycodestyle==2.5.0
-pip-tools==6.5.1
+pip-tools==6.10.0  # Last version that supports click < 8
 pyfakefs==3.2
 Sphinx==1.8.5
 sphinx-rtd-theme==0.4.3
