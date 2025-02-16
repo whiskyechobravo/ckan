@@ -88,7 +88,7 @@ pytz==2016.7
     #   tzlocal
 pyutilib==5.7.1
     # via -r requirements.in
-pyyaml==6.0.1
+pyyaml==5.4.1
     # via -r requirements.in
 redis==3.5.3
     # via rq
