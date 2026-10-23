@@ -35,7 +35,7 @@ blinker==1.4
     # via flask-debugtoolbar
 build==1.2.2.post1
     # via pip-tools
-certifi==2021.5.30
+certifi==2026.10.23
     # via
     #   -r requirements.txt
     #   requests

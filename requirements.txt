@@ -14,7 +14,7 @@ beaker==1.11.0
     # via -r requirements.in
 bleach==3.1.4
     # via -r requirements.in
-certifi==2021.5.30
+certifi==2026.10.23
     # via requests
 chardet==4.0.0
     # via requests
